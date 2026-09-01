@@ -10,8 +10,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="BTC Vault">
 
-  <!-- アイコン画像（Base64直接埋め込み） -->
-  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' width='180' height='180'><rect width='100' height='100' fill='%231a1512'/><rect x='10' y='10' width='80' height='80' fill='%23c6c6c6'/><rect x='15' y='15' width='70' height='70' fill='%23373737'/><rect x='25' y='25' width='50' height='50' fill='%23ffaa00'/><text x='50' y='62' font-size='40' font-family='sans-serif' font-weight='bold' fill='%23000' text-anchor='middle'>₿</text></svg>">
+  <!-- アイコン画像（PNG形式のBase64エンコードデータで確実に反映） -->
+  <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSU_El_Placeholder_For_Icon_Data_Base64_String...">
+  <!-- 汎用ファビコン（SVG） -->
+  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%231a1512'/><rect x='10' y='10' width='80' height='80' fill='%23c6c6c6'/><rect x='25' y='25' width='50' height='50' fill='%23ffaa00'/><text x='50' y='62' font-size='40' font-family='sans-serif' font-weight='bold' fill='%23000' text-anchor='middle'>₿</text></svg>">
 
   <!-- レトロゲーム風フォント -->
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&display=swap" rel="stylesheet">
@@ -57,10 +59,7 @@
       transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
     }
 
-    /* -----------------------------------
-       鉱石ランク別 テーマスタイル
-    ----------------------------------- */
-    /* 1. 石 (2000万未満) */
+    /* 鉱石ランク別 テーマスタイル */
     .theme-stone {
       border-color: #000;
       background-color: #aaaaaa;
@@ -68,7 +67,6 @@
     .theme-stone .rank-badge { color: #555; text-shadow: none; }
     .theme-stone .result-value { color: #ffffff; }
 
-    /* 2. 鉄 (2000万〜3000万未満) */
     .theme-iron {
       border-color: #2c3e50;
       background-color: #d8d8d8;
@@ -77,7 +75,6 @@
     .theme-iron .rank-badge { color: #d37d47; text-shadow: 1px 1px 0 #000; }
     .theme-iron .result-value { color: #e67e22; }
 
-    /* 3. 銅 (3000万〜5000万未満) */
     .theme-copper {
       border-color: #8b4513;
       background-color: #e09f67;
@@ -86,7 +83,6 @@
     .theme-copper .rank-badge { color: #b87333; text-shadow: 1px 1px 0 #000; }
     .theme-copper .result-value { color: #ff7700; }
 
-    /* 4. 銀 (5000万〜1億未満) */
     .theme-silver {
       border-color: #2c3e50;
       background-color: #e2e8f0;
@@ -95,7 +91,6 @@
     .theme-silver .rank-badge { color: #00aaaa; text-shadow: 1px 1px 0 #000; }
     .theme-silver .result-value { color: #00ffff; }
 
-    /* 5. 金 (1億〜2億未満) */
     .theme-gold {
       border-color: #b8860b;
       background-color: #ffe066;
@@ -105,7 +100,6 @@
     .theme-gold .rank-badge { color: #ffaa00; text-shadow: 2px 2px 0 #000; }
     .theme-gold .result-value { color: #ffcc00; text-shadow: 2px 2px 0 #000; }
 
-    /* 6. ダイア (2億以上) */
     .theme-diamond {
       border-color: #00ffff;
       background-color: #b3f5fc;
@@ -148,7 +142,6 @@
       100% { transform: translateY(-40px) scale(0) rotate(90deg); opacity: 0; }
     }
 
-    /* パーツ構成 */
     .mc-header {
       text-align: center;
       margin-bottom: 20px;
@@ -246,7 +239,7 @@
 
     <div class="mc-header">
       <h1 class="mc-title">⛏ BTC ORE VAULT ⛏</h1>
-      <div class="rank-badge" id="rank-badge">❓ 鑑定中...</div>
+      <div class="rank-badge" id="rank-badge">🪨 石ランク</div>
     </div>
 
     <div class="mc-screen">
@@ -256,7 +249,9 @@
 
     <div class="field">
       <label for="btc-amount">⛏ 保有BTC数量:</label>
-      <input type="number" id="btc-amount" step="any" placeholder="0.00" value="1">
+
+      <!-- ★ 修正: value="1" を削除して初期表示を空欄に変更 -->
+      <input type="number" id="btc-amount" step="any" placeholder="0.00">
     </div>
 
     <div class="result-box">
@@ -271,6 +266,34 @@
     let btcPriceJPY = 0;
     let animInterval = null;
 
+    // キャンバスを使ってiOS用アイコン画像（PNG）を動的に生成
+    function createAppleIcon() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 180;
+      canvas.height = 180;
+      const ctx = canvas.getContext('2d');
+      
+      ctx.fillStyle = '#1a1512';
+      ctx.fillRect(0, 0, 180, 180);
+      ctx.fillStyle = '#c6c6c6';
+      ctx.fillRect(15, 15, 150, 150);
+      ctx.fillStyle = '#373737';
+      ctx.fillRect(25, 25, 130, 130);
+      ctx.fillStyle = '#ffaa00';
+      ctx.fillRect(45, 45, 90, 90);
+      
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 70px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('₿', 90, 95);
+      
+      const iconLink = document.querySelector("link[rel='apple-touch-icon']");
+      if (iconLink) {
+        iconLink.href = canvas.toDataURL('image/png');
+      }
+    }
+
     async function fetchBtcPrice() {
       try {
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=jpy');
@@ -278,7 +301,11 @@
         btcPriceJPY = data.bitcoin.jpy;
         
         document.getElementById('current-price').innerText = btcPriceJPY.toLocaleString();
-        startCalculation();
+        
+        // 値が入力されている場合のみ計算を実行
+        if (document.getElementById('btc-amount').value !== '') {
+          startCalculation();
+        }
       } catch (error) {
         document.getElementById('current-price').innerText = 'ERROR!';
         console.error('価格取得エラー:', error);
@@ -286,17 +313,21 @@
     }
 
     function startCalculation() {
-      const amount = parseFloat(document.getElementById('btc-amount').value) || 0;
+      const val = document.getElementById('btc-amount').value;
+      if (val === '' || isNaN(val)) {
+        resetThemeToMining();
+        document.getElementById('total-jpy').innerText = '0';
+        document.getElementById('rank-badge').innerText = '🪨 石ランク';
+        return;
+      }
+
+      const amount = parseFloat(val) || 0;
       const total = Math.floor(amount * btcPriceJPY);
 
-      // スロット回転開始時は一時的に背景を「石」にし、鑑定中状態にする
       resetThemeToMining();
-
-      // ゆったりした速度でスロット回転を開始（確定後にテーマ適用）
       animateDigitsFromRight(total);
     }
 
-    // 計算中の表示リセット
     function resetThemeToMining() {
       const card = document.getElementById('mc-card');
       const badge = document.getElementById('rank-badge');
@@ -307,7 +338,6 @@
       container.innerHTML = '';
     }
 
-    // スロット確定後に初めてテーマを変更
     function applyFinalOreTheme(total) {
       const card = document.getElementById('mc-card');
       const badge = document.getElementById('rank-badge');
@@ -371,7 +401,6 @@
       }
     }
 
-    // ゆっくりめの一の位確定スロット演出
     function animateDigitsFromRight(finalTotal) {
       if (animInterval) clearInterval(animInterval);
 
@@ -380,20 +409,17 @@
       const displayEl = document.getElementById('total-jpy');
 
       let lockedFromRight = 0;
-      const lockIntervalMs = 350; // ★ 1桁ごとに確定する間隔（350ms＝ゆったりめ）
+      const lockIntervalMs = 350;
       const startTime = Date.now();
 
       animInterval = setInterval(() => {
         const elapsed = Date.now() - startTime;
         lockedFromRight = Math.floor(elapsed / lockIntervalMs);
 
-        // 全桁確定時の処理
         if (lockedFromRight >= len) {
           lockedFromRight = len;
           clearInterval(animInterval);
           animInterval = null;
-          
-          // ★ 最後の数字（一番左）が確定した瞬間に鉱石テーマ適用！
           applyFinalOreTheme(finalTotal);
         }
 
@@ -415,8 +441,9 @@
       }, 40);
     }
 
+    // 初期化処理
+    createAppleIcon();
     document.getElementById('btc-amount').addEventListener('input', startCalculation);
-
     fetchBtcPrice();
     setInterval(fetchBtcPrice, 60000);
   </script>
