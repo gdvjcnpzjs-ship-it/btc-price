@@ -10,8 +10,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="BTC Vault">
 
-  <!-- iPhone用ホーム画面アイコン (案2: Gold Ore Block + BTC) -->
-  <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAC4SURBVHhe7cExAQAAAMKg9U9tCj8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB4A4+7AAGLbeY+AAAAAElFTkSuQmCC">
+  <!-- iPhone用ホーム画面アイコン（黒背景＋オレンジ₿ロゴ） -->
+  <link rel="apple-touch-icon" href="">
 
   <!-- レトロゲーム風フォント -->
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&display=swap" rel="stylesheet">
@@ -249,7 +249,6 @@
 
     <div class="field">
       <label for="btc-amount">⛏ 保有BTC数量:</label>
-      <!-- 初期状態は空欄 -->
       <input type="number" id="btc-amount" step="any" placeholder="0.00">
     </div>
 
@@ -265,48 +264,35 @@
     let btcPriceJPY = 0;
     let animInterval = null;
 
-    // 1. 金鉱石風アイコンの動的生成＆設定
-    function setupGoldOreIcon() {
+    // ★ 黒背景＋オレンジ₿ロゴアイコンの生成
+    function setupBitcoinIcon() {
       try {
         const canvas = document.createElement('canvas');
         canvas.width = 180;
         canvas.height = 180;
         const ctx = canvas.getContext('2d');
-        const p = 180 / 16;
 
-        ctx.fillStyle = '#d4af37';
+        // 1. 高級感ある黒背景 (#111111)
+        ctx.fillStyle = '#111111';
         ctx.fillRect(0, 0, 180, 180);
 
-        const noiseGrid = [
-          [0,1,0,-1,0,1,0,0,1,0,-1,0,1,0,-1,0],
-          [1,0,-1,0,1,0,1,-1,0,1,0,1,0,1,0,1],
-          [-1,0,1,0,0,-1,0,1,0,-1,0,0,1,0,-1,0],
-          [0,1,0,1,-1,0,1,0,1,0,1,-1,0,1,0,1]
-        ];
-        for (let r = 0; r < 16; r++) {
-          for (let c = 0; c < 16; c++) {
-            const val = noiseGrid[r % 4][c % 4];
-            if (val === 1) { ctx.fillStyle = '#fff8dc'; ctx.fillRect(c * p, r * p, p, p); }
-            else if (val === -1) { ctx.fillStyle = '#8b6508'; ctx.fillRect(c * p, r * p, p, p); }
-          }
-        }
+        // 2. ビットコイン公式オレンジの円 (#F7931A)
+        ctx.beginPath();
+        ctx.arc(90, 90, 68, 0, Math.PI * 2);
+        ctx.fillStyle = '#F7931A';
+        ctx.fill();
 
-        ctx.fillStyle = '#fff8dc';
-        ctx.fillRect(0, 0, p, 180);
-        ctx.fillRect(0, 0, 180, p);
+        // 3. 中央の₿ロゴ（白・14度傾けたスタイリッシュデザイン）
+        ctx.save();
+        ctx.translate(90, 90);
+        ctx.rotate((14 * Math.PI) / 180);
 
-        ctx.fillStyle = '#281e05';
-        ctx.fillRect(0, 180 - p, 180, p);
-
-        ctx.fillStyle = '#503c0a';
-        ctx.fillRect(180 - p, 0, p, 180);
-
-        ctx.fillStyle = '#1a1512';
-        ctx.fillRect(4 * p, 4 * p, 8 * p, 8 * p);
-
-        const btcPixels = [[4,7],[4,8],[5,6],[5,7],[5,8],[6,6],[6,9],[7,6],[7,7],[7,8],[8,6],[8,9],[9,6],[9,7],[9,8],[10,7],[10,8]];
-        ctx.fillStyle = '#ffc107';
-        btcPixels.forEach(([r, c]) => ctx.fillRect(c * p, r * p, p, p));
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 96px "Arial", "Helvetica", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('₿', 0, 2);
+        ctx.restore();
 
         const iconLink = document.querySelector("link[rel='apple-touch-icon']");
         if (iconLink) {
@@ -317,7 +303,7 @@
       }
     }
 
-    // 2. BTC価格の取得
+    // BTC価格の取得
     async function fetchBtcPrice() {
       try {
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=jpy');
@@ -326,7 +312,6 @@
         
         document.getElementById('current-price').innerText = btcPriceJPY.toLocaleString();
         
-        // 入力値が存在する場合のみ再計算
         const val = document.getElementById('btc-amount').value;
         if (val !== '' && !isNaN(val)) {
           startCalculation();
@@ -337,11 +322,10 @@
       }
     }
 
-    // 3. 計算およびスロット演出の開始
+    // 計算およびスロット演出の開始
     function startCalculation() {
       const val = document.getElementById('btc-amount').value;
       
-      // 空欄のときはリセット
       if (val === '' || isNaN(val)) {
         if (animInterval) clearInterval(animInterval);
         resetThemeToMining();
@@ -353,10 +337,7 @@
       const amount = parseFloat(val) || 0;
       const total = Math.floor(amount * btcPriceJPY);
 
-      // テーマを一時的に「鑑定中...」にセット
       resetThemeToMining();
-      
-      // ゆったりしたスピードで一の位から確定させていく
       animateDigitsFromRight(total);
     }
 
@@ -370,7 +351,7 @@
       container.innerHTML = '';
     }
 
-    // 4. スロット全桁確定後に鉱石テーマを適用
+    // 鉱石テーマの適用
     function applyFinalOreTheme(total) {
       const card = document.getElementById('mc-card');
       const badge = document.getElementById('rank-badge');
@@ -434,7 +415,7 @@
       }
     }
 
-    // 5. 右（一の位）からのスロット演出
+    // 右（一の位）からのスロット演出
     function animateDigitsFromRight(finalTotal) {
       if (animInterval) clearInterval(animInterval);
 
@@ -443,7 +424,7 @@
       const displayEl = document.getElementById('total-jpy');
 
       let lockedFromRight = 0;
-      const lockIntervalMs = 350; // 350ms間隔で1桁ずつ確定
+      const lockIntervalMs = 350;
       const startTime = Date.now();
 
       animInterval = setInterval(() => {
@@ -454,8 +435,6 @@
           lockedFromRight = len;
           clearInterval(animInterval);
           animInterval = null;
-          
-          // 全桁確定した瞬間に鉱石テーマ変更！
           applyFinalOreTheme(finalTotal);
         }
 
@@ -477,9 +456,9 @@
       }, 40);
     }
 
-    // 初期化イベント設定
+    // 初期化
     window.addEventListener('DOMContentLoaded', () => {
-      setupGoldOreIcon();
+      setupBitcoinIcon();
       document.getElementById('btc-amount').addEventListener('input', startCalculation);
       fetchBtcPrice();
       setInterval(fetchBtcPrice, 60000);
