@@ -109,6 +109,41 @@
     .theme-diamond .rank-badge { color: #00ffff; text-shadow: 2px 2px 0 #000; }
     .theme-diamond .result-value { color: #55ffff; text-shadow: 3px 3px 0 #000; }
 
+    /* 🚨 1/399 バグ発生時のグリッチ演出テーマ 🚨 */
+    .theme-bug {
+      border-color: #ff0055 !important;
+      background-color: #2a000f !important;
+      box-shadow: 0 0 50px #ff0055, inset 0 0 20px #ff0000 !important;
+      animation: bug-glitch 0.2s infinite alternate !important;
+    }
+    .theme-bug .rank-badge {
+      color: #ff0055 !important;
+      background: #000000 !important;
+      border-color: #ff0055 !important;
+      text-shadow: 0 0 8px #ff0055 !important;
+      animation: blink 0.3s infinite alternate;
+    }
+    .theme-bug .result-value {
+      color: #00ffff !important;
+      text-shadow: 3px 3px 0px #ff0055, -3px -3px 0px #0000ff !important;
+      animation: text-shake 0.15s infinite;
+    }
+
+    @keyframes bug-glitch {
+      0% { transform: translate(2px, 1px) rotate(0.5deg); filter: hue-rotate(0deg); }
+      50% { transform: translate(-2px, -2px) rotate(-0.5deg); filter: hue-rotate(90deg); }
+      100% { transform: translate(1px, -1px) rotate(0deg); filter: hue-rotate(180deg); }
+    }
+    @keyframes text-shake {
+      0% { transform: translate(1px, 0); }
+      50% { transform: translate(-1px, -1px); }
+      100% { transform: translate(0, 1px); }
+    }
+    @keyframes blink {
+      0% { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
+
     @keyframes gold-pulse {
       0% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.7); }
       100% { box-shadow: 0 0 45px rgba(255, 215, 0, 1); }
@@ -243,7 +278,7 @@
     </div>
 
     <div class="mc-screen">
-      <div class="price-label">▶ CURRENT 1 BTC RATE:</div>
+      <div class="price-label" id="price-label">▶ CURRENT 1 BTC RATE:</div>
       <div class="price-value"><span id="current-price">LOADING...</span> <span style="font-size: 10px;">JPY</span></div>
     </div>
 
@@ -253,7 +288,7 @@
     </div>
 
     <div class="result-box">
-      <div class="result-label">TOTAL VALUE (評価額)</div>
+      <div class="result-label" id="result-label">TOTAL VALUE (評価額)</div>
       <div class="result-value">
         <span id="total-jpy">0</span><span class="unit">円</span>
       </div>
@@ -264,7 +299,7 @@
     let btcPriceJPY = 0;
     let animInterval = null;
 
-    // ★ 黒背景＋オレンジ₿ロゴアイコンの生成
+    // 黒背景＋オレンジ₿ロゴアイコンの生成
     function setupBitcoinIcon() {
       try {
         const canvas = document.createElement('canvas');
@@ -272,17 +307,14 @@
         canvas.height = 180;
         const ctx = canvas.getContext('2d');
 
-        // 1. 高級感ある黒背景 (#111111)
         ctx.fillStyle = '#111111';
         ctx.fillRect(0, 0, 180, 180);
 
-        // 2. ビットコイン公式オレンジの円 (#F7931A)
         ctx.beginPath();
         ctx.arc(90, 90, 68, 0, Math.PI * 2);
         ctx.fillStyle = '#F7931A';
         ctx.fill();
 
-        // 3. 中央の₿ロゴ（白・14度傾けたスタイリッシュデザイン）
         ctx.save();
         ctx.translate(90, 90);
         ctx.rotate((14 * Math.PI) / 180);
@@ -335,28 +367,54 @@
       }
 
       const amount = parseFloat(val) || 0;
-      const total = Math.floor(amount * btcPriceJPY);
+
+      // ★ 1/399の確率でバグ判定（整数2〜10倍）
+      let bugMultiplier = 1;
+      const bugChance = Math.floor(Math.random() * 399); // 0〜398の乱数
+      if (bugChance === 0) {
+        // バグ当選！2倍〜10倍の整数ランダム
+        bugMultiplier = Math.floor(Math.random() * 9) + 2;
+      }
+
+      const effectivePrice = btcPriceJPY * bugMultiplier;
+      const total = Math.floor(amount * effectivePrice);
 
       resetThemeToMining();
-      animateDigitsFromRight(total);
+      animateDigitsFromRight(total, bugMultiplier);
     }
 
     function resetThemeToMining() {
       const card = document.getElementById('mc-card');
       const badge = document.getElementById('rank-badge');
       const container = document.getElementById('sparkle-container');
+      const resultLabel = document.getElementById('result-label');
       
       card.className = 'mc-card theme-stone';
       badge.innerText = '⛏ 鑑定中...';
       container.innerHTML = '';
+      resultLabel.innerText = 'TOTAL VALUE (評価額)';
+      resultLabel.style.color = '#aaaaaa';
     }
 
-    // 鉱石テーマの適用
-    function applyFinalOreTheme(total) {
+    // 鉱石テーマ（または1/399バグテーマ）の適用
+    function applyFinalOreTheme(total, bugMultiplier) {
       const card = document.getElementById('mc-card');
       const badge = document.getElementById('rank-badge');
+      const resultLabel = document.getElementById('result-label');
       
       card.className = 'mc-card';
+
+      // 🚨 バグ発生時の処理
+      if (bugMultiplier > 1) {
+        card.classList.add('theme-bug');
+        badge.innerText = `⚠️ SYSTEM BUG: ${bugMultiplier}x MULTIPLIER ⚠️`;
+        resultLabel.innerText = `⚠️ CRITICAL BUG DETECTED (${bugMultiplier}倍暴騰) ⚠️`;
+        resultLabel.style.color = '#ff0055';
+
+        // 派手なネオンバグパーティクル
+        generateSparkles(50, ['#ff0055', '#00ffff', '#ffff00', '#ffffff', '#ff00ff']);
+        return;
+      }
       
       let themeClass = 'theme-stone';
       let rankText = '🪨 石ランク (2,000万未満)';
@@ -416,7 +474,7 @@
     }
 
     // 右（一の位）からのスロット演出
-    function animateDigitsFromRight(finalTotal) {
+    function animateDigitsFromRight(finalTotal, bugMultiplier) {
       if (animInterval) clearInterval(animInterval);
 
       const targetStr = finalTotal.toLocaleString();
@@ -435,7 +493,7 @@
           lockedFromRight = len;
           clearInterval(animInterval);
           animInterval = null;
-          applyFinalOreTheme(finalTotal);
+          applyFinalOreTheme(finalTotal, bugMultiplier);
         }
 
         let currentDisplay = '';
