@@ -188,7 +188,6 @@
       cursor: pointer;
     }
 
-    /* バージョン表記エリア */
     .version-tag {
       font-size: 10px;
       color: #777;
@@ -278,7 +277,7 @@
 
     <div class="mc-header">
       <h1 class="mc-title" id="mc-title">⛏ BTC ORE VAULT ⛏</h1>
-      <div class="version-tag">ver 1.2.0 (1/399 Bug System Loaded)</div>
+      <div class="version-tag">ver 1.3.0 (API Fallback Fixed)</div>
       <div class="rank-badge" id="rank-badge">🪨 石ランク</div>
     </div>
 
@@ -303,4 +302,260 @@
   <script>
     let btcPriceJPY = 0;
     let animInterval = null;
-    let tapCount = 0; // 隠しコマンド
+    let tapCount = 0;
+
+    function setupBitcoinIcon() {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 180;
+        canvas.height = 180;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#111111';
+        ctx.fillRect(0, 0, 180, 180);
+
+        ctx.beginPath();
+        ctx.arc(90, 90, 68, 0, Math.PI * 2);
+        ctx.fillStyle = '#F7931A';
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(90, 90);
+        ctx.rotate((14 * Math.PI) / 180);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 96px "Arial", "Helvetica", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('₿', 0, 2);
+        ctx.restore();
+
+        const iconLink = document.querySelector("link[rel='apple-touch-icon']");
+        if (iconLink) {
+          iconLink.href = canvas.toDataURL('image/png');
+        }
+      } catch (e) {
+        console.error('Icon generation failed:', e);
+      }
+    }
+
+    // 多重API取得ロジック（CoinGecko -> bitFlyerフォールバック）
+    async function fetchBtcPrice() {
+      let fetchedPrice = 0;
+
+      // API 1: CoinGecko
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=jpy');
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.bitcoin && data.bitcoin.jpy) {
+            fetchedPrice = data.bitcoin.jpy;
+          }
+        }
+      } catch (e) {
+        console.warn('CoinGecko API failed, trying fallback...', e);
+      }
+
+      // API 2: bitFlyer (CoinGeckoがダメだった場合)
+      if (!fetchedPrice) {
+        try {
+          const response = await fetch('https://api.bitflyer.com/v1/ticker?product_code=BTC_JPY');
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.ltp) {
+              fetchedPrice = data.ltp;
+            }
+          }
+        } catch (e) {
+          console.warn('bitFlyer API failed...', e);
+        }
+      }
+
+      // 取得成功時
+      if (fetchedPrice > 0) {
+        btcPriceJPY = fetchedPrice;
+        document.getElementById('current-price').innerText = btcPriceJPY.toLocaleString();
+        
+        const val = document.getElementById('btc-amount').value;
+        if (val !== '' && !isNaN(val)) {
+          startCalculation(false);
+        }
+      } else {
+        // 価格未取得エラー時
+        if (btcPriceJPY === 0) {
+          document.getElementById('current-price').innerText = 'RETRYING...';
+        }
+      }
+    }
+
+    function startCalculation(forceBug = false) {
+      const val = document.getElementById('btc-amount').value;
+      
+      if (val === '' || isNaN(val)) {
+        if (animInterval) clearInterval(animInterval);
+        resetThemeToMining();
+        document.getElementById('total-jpy').innerText = '0';
+        document.getElementById('rank-badge').innerText = '🪨 石ランク';
+        return;
+      }
+
+      const amount = parseFloat(val) || 0;
+
+      let bugMultiplier = 1;
+      const bugChance = Math.floor(Math.random() * 399);
+      if (bugChance === 0 || forceBug) {
+        bugMultiplier = Math.floor(Math.random() * 9) + 2;
+      }
+
+      const effectivePrice = btcPriceJPY * bugMultiplier;
+      const total = Math.floor(amount * effectivePrice);
+
+      resetThemeToMining();
+      animateDigitsFromRight(total, bugMultiplier);
+    }
+
+    function resetThemeToMining() {
+      const card = document.getElementById('mc-card');
+      const badge = document.getElementById('rank-badge');
+      const container = document.getElementById('sparkle-container');
+      const resultLabel = document.getElementById('result-label');
+      
+      card.className = 'mc-card theme-stone';
+      badge.innerText = '⛏ 鑑定中...';
+      container.innerHTML = '';
+      resultLabel.innerText = 'TOTAL VALUE (評価額)';
+      resultLabel.style.color = '#aaaaaa';
+    }
+
+    function applyFinalOreTheme(total, bugMultiplier) {
+      const card = document.getElementById('mc-card');
+      const badge = document.getElementById('rank-badge');
+      const resultLabel = document.getElementById('result-label');
+      
+      card.className = 'mc-card';
+
+      if (bugMultiplier > 1) {
+        card.classList.add('theme-bug');
+        badge.innerText = `⚠️ SYSTEM BUG: ${bugMultiplier}x MULTIPLIER ⚠️`;
+        resultLabel.innerText = `⚠️ CRITICAL BUG DETECTED (${bugMultiplier}倍暴騰) ⚠️`;
+        resultLabel.style.color = '#ff0055';
+
+        generateSparkles(50, ['#ff0055', '#00ffff', '#ffff00', '#ffffff', '#ff00ff']);
+        return;
+      }
+      
+      let themeClass = 'theme-stone';
+      let rankText = '🪨 石ランク (2,000万未満)';
+      let sparkleCount = 0;
+      let sparkleColors = [];
+
+      if (total >= 200000000) {
+        themeClass = 'theme-diamond';
+        rankText = '💎 ダイアランク (2億円超) ✨最上級✨';
+        sparkleCount = 40;
+        sparkleColors = ['#00ffff', '#ffffff', '#ff77ff', '#55ffff'];
+      } else if (total >= 100000000) {
+        themeClass = 'theme-gold';
+        rankText = '👑 金ランク (1億円超) ✨超絶輝き✨';
+        sparkleCount = 28;
+        sparkleColors = ['#ffd700', '#ffaa00', '#ffffff', '#fff9c4'];
+      } else if (total >= 50000000) {
+        themeClass = 'theme-silver';
+        rankText = '⚔️ 銀ランク (5,000万超) ✨キラキラ✨';
+        sparkleCount = 18;
+        sparkleColors = ['#ffffff', '#a6d8ff', '#e0e0e0'];
+      } else if (total >= 30000000) {
+        themeClass = 'theme-copper';
+        rankText = '🥉 銅ランク (3,000万超) ✨キラキラ✨';
+        sparkleCount = 10;
+        sparkleColors = ['#ff9d42', '#e67e22', '#ffffff'];
+      } else if (total >= 20000000) {
+        themeClass = 'theme-iron';
+        rankText = '⚙️ 鉄ランク (2,000万超)';
+        sparkleCount = 0;
+      } else {
+        themeClass = 'theme-stone';
+        rankText = '🪨 石ランク (2,000万未満)';
+        sparkleCount = 0;
+      }
+
+      card.classList.add(themeClass);
+      badge.innerText = rankText;
+      generateSparkles(sparkleCount, sparkleColors);
+    }
+
+    function generateSparkles(count, colors) {
+      const container = document.getElementById('sparkle-container');
+      container.innerHTML = '';
+      if (count === 0) return;
+
+      for (let i = 0; i < count; i++) {
+        const sparkle = document.createElement('div');
+        sparkle.className = 'pixel-sparkle';
+        sparkle.style.left = Math.random() * 100 + '%';
+        sparkle.style.top = Math.random() * 100 + '%';
+        sparkle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        sparkle.style.setProperty('--delay', (Math.random() * 2) + 's');
+        sparkle.style.setProperty('--duration', (1 + Math.random() * 1.5) + 's');
+        container.appendChild(sparkle);
+      }
+    }
+
+    function animateDigitsFromRight(finalTotal, bugMultiplier) {
+      if (animInterval) clearInterval(animInterval);
+
+      const targetStr = finalTotal.toLocaleString();
+      const len = targetStr.length;
+      const displayEl = document.getElementById('total-jpy');
+
+      let lockedFromRight = 0;
+      const lockIntervalMs = 350;
+      const startTime = Date.now();
+
+      animInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        lockedFromRight = Math.floor(elapsed / lockIntervalMs);
+
+        if (lockedFromRight >= len) {
+          lockedFromRight = len;
+          clearInterval(animInterval);
+          animInterval = null;
+          applyFinalOreTheme(finalTotal, bugMultiplier);
+        }
+
+        let currentDisplay = '';
+        for (let i = 0; i < len; i++) {
+          const charFromRight = len - 1 - i;
+          const targetChar = targetStr[i];
+
+          if (targetChar === ',') {
+            currentDisplay += ',';
+          } else if (charFromRight < lockedFromRight) {
+            currentDisplay += targetChar;
+          } else {
+            currentDisplay += Math.floor(Math.random() * 10);
+          }
+        }
+
+        displayEl.innerText = currentDisplay;
+      }, 40);
+    }
+
+    document.getElementById('mc-title').addEventListener('click', () => {
+      tapCount++;
+      if (tapCount >= 3) {
+        tapCount = 0;
+        startCalculation(true);
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setupBitcoinIcon();
+      document.getElementById('btc-amount').addEventListener('input', () => startCalculation(false));
+      fetchBtcPrice();
+      setInterval(fetchBtcPrice, 15000); // 15秒ごとに更新
+    });
+  </script>
+
+</body>
+</html>
